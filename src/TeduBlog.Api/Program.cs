@@ -1,10 +1,15 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Net.NetworkInformation;
 using System.Reflection;
+using System.Text;
 using TeduBlog.Api;
+using TeduBlog.Api.Services;
+using TeduBlog.Core.ConfigOptions;
 using TeduBlog.Core.Domain.Identity;
 using TeduBlog.Core.Models.Content;
 using TeduBlog.Core.SeedWorks;
@@ -64,8 +69,42 @@ foreach (var service in services)
     }
 }
 
+//Auto mapper
 builder.Services.AddAutoMapper(cfg => { },
                                typeof(PostInListDto.AutoMapperProfiles).Assembly);
+
+//Authen and author
+builder.Services.Configure<JwtTokenSettings>(configuration.GetSection("JwtTokenSettings"));
+
+// JWT Authentication
+var jwtTokenSettings = configuration.GetSection("JwtTokenSettings").Get<JwtTokenSettings>();
+if (jwtTokenSettings != null)
+{
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtTokenSettings.Issuer,
+            ValidAudience = jwtTokenSettings.Issuer,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtTokenSettings.Key))
+        };
+    });
+}
+
+builder.Services.AddScoped<SignInManager<AppUser>, SignInManager<AppUser>>();
+builder.Services.AddScoped<UserManager<AppUser>, UserManager<AppUser>>();
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<RoleManager<AppRole>, RoleManager<AppRole>>();
 
 //Default config for ASP.NET Core
 builder.Services.AddControllers();
@@ -102,6 +141,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
