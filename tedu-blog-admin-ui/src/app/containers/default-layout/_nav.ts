@@ -28,7 +28,7 @@ export const navItems: INavData[] = [
         url: '/content/series'
       },
        {
-        name: 'Nhuận but',
+        name: 'Nhuận bút',
         url: '/content/royalty'
       }
     ]
